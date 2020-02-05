@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"time"
-
-	"github.com/uol/logh"
 )
 
 //
@@ -93,19 +91,40 @@ func (z *Zencached) executeSend(telnetConn *Telnet, operation memcachedCommand, 
 }
 
 // checkResponse - checks the memcached response
-func (z *Zencached) checkResponse(response, foundResponse, notFoundResponse []byte, operation memcachedCommand, renderedCmd string) (bool, error) {
+func (z *Zencached) checkResponse(telnetConn *Telnet, foundResponse, notFoundResponse []byte, operation memcachedCommand, renderedCmd string) (bool, []byte, error) {
+
+	response, err := telnetConn.Read()
+	if err != nil {
+		return false, nil, err
+	}
 
 	if !bytes.HasPrefix(response, foundResponse) {
 		if !bytes.HasPrefix(response, notFoundResponse) {
-			return false, fmt.Errorf("%s operation error on key:\n%s", operation, string(response))
+			return false, nil, fmt.Errorf("%s operation error on key:\n%s", operation, string(response))
 		}
-		if logh.DebugEnabled {
-			z.logger.Debug().Msgf("%s: not found", renderedCmd)
+
+		if z.enableMetrics {
+			go z.metricsCollector.Count(
+				metricCacheMiss,
+				1,
+				tagNodeName, telnetConn.GetHost(),
+				tagOperationName, string(operation),
+			)
 		}
-		return false, nil
+
+		return false, response, nil
 	}
 
-	return true, nil
+	if z.enableMetrics {
+		go z.metricsCollector.Count(
+			metricCacheHit,
+			1,
+			tagNodeName, telnetConn.GetHost(),
+			tagOperationName, string(operation),
+		)
+	}
+
+	return true, response, nil
 }
 
 // Storage - performs an storage operation
@@ -124,19 +143,11 @@ func (z *Zencached) Storage(cmd memcachedCommand, routerHash []byte, key string,
 		return false, err
 	}
 
-	response, err := telnetConn.Read()
+	wasStored, _, err := z.checkResponse(telnetConn, mcrStored, mcrNotStored, cmd, renderedCmd)
 	if err != nil {
 		return false, err
 	}
 
-	wasStored, err := z.checkResponse(response, mcrStored, mcrNotStored, cmd, renderedCmd)
-	if err != nil {
-		return false, err
-	}
-
-	if logh.DebugEnabled && wasStored {
-		z.logger.Debug().Msgf("%s: stored", renderedCmd)
-	}
 	return wasStored, nil
 }
 
@@ -156,22 +167,13 @@ func (z *Zencached) Get(routerHash []byte, key string) (string, bool, error) {
 		return empty, false, err
 	}
 
-	response, err := telnetConn.Read()
-	if err != nil {
-		return empty, false, err
-	}
-
-	exists, err := z.checkResponse(response, mcrValue, mcrEnd, get, renderedCmd)
+	exists, response, err := z.checkResponse(telnetConn, mcrValue, mcrEnd, get, renderedCmd)
 	if !exists || err != nil {
 		return empty, false, err
 	}
 
 	start, end := z.extractLine(response, 2)
 	storedValue := string(response[start:end])
-
-	if logh.DebugEnabled {
-		z.logger.Debug().Msgf("%s: %s", renderedCmd, storedValue)
-	}
 
 	return storedValue, true, nil
 }
@@ -222,18 +224,9 @@ func (z *Zencached) Delete(routerHash []byte, key string) (bool, error) {
 		return false, err
 	}
 
-	response, err := telnetConn.Read()
+	exists, _, err := z.checkResponse(telnetConn, mcrDeleted, mcrNotFound, delete, renderedCmd)
 	if err != nil {
 		return false, err
-	}
-
-	exists, err := z.checkResponse(response, mcrDeleted, mcrNotFound, delete, renderedCmd)
-	if err != nil {
-		return false, err
-	}
-
-	if logh.DebugEnabled && exists {
-		z.logger.Debug().Msgf("%s: deleted", renderedCmd)
 	}
 
 	return exists, nil

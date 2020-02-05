@@ -10,6 +10,8 @@ const (
 	metricNodeConnAvailableTime string = "zencached.node.conn.available.time"
 	metricOperationCount        string = "zencached.operation.count"
 	metricOperationTime         string = "zencached.operation.time"
+	metricCacheMiss             string = "zencached.cache.miss"
+	metricCacheHit              string = "zencached.cache.hit"
 	tagNodeName                 string = "node"
 	tagOperationName            string = "operation"
 )

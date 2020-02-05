@@ -293,6 +293,7 @@ func TestMetricsCollector(t *testing.T) {
 			regexp.MustCompile(fmt.Sprintf("count/zencached\\.operation\\.count/[0-9\\.]+/\\[node [0-9\\.]+\\ operation %s\\]", operation)),
 			regexp.MustCompile("max/zencached\\.node\\.conn\\.available\\.time/[0-9\\.]+/\\[node [0-9\\.]+\\]"),
 			regexp.MustCompile(fmt.Sprintf("max/zencached\\.operation\\.time/[0-9\\.]+/\\[node [0-9\\.]+ operation %s\\]", operation)),
+			regexp.MustCompile(fmt.Sprintf("count/zencached\\.cache\\.(hit|miss)/[0-9\\.]+/\\[node [0-9\\.]+ operation %s\\]", operation)),
 		}
 	}
 
