@@ -16,6 +16,8 @@ import (
 // author: rnojiri
 //
 
+var numNodes int
+
 // createZencached - creates a new client
 func createZencached(metricsCollector zencached.MetricsCollector) *zencached.Zencached {
 
@@ -24,6 +26,8 @@ func createZencached(metricsCollector zencached.MetricsCollector) *zencached.Zen
 		NumConnectionsPerNode: 3,
 		TelnetConfiguration:   *createTelnetConf(),
 	}
+
+	numNodes = len(c.Nodes)
 
 	z, err := zencached.New(c, metricsCollector)
 	if err != nil {
@@ -299,7 +303,7 @@ func TestMetricsCollector(t *testing.T) {
 
 	validateArray := func(operation string) {
 
-		<-time.After(100 * time.Millisecond)
+		<-time.After(200 * time.Millisecond)
 
 		validations := createValidations(operation)
 

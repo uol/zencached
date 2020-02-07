@@ -133,6 +133,12 @@ func (z *Zencached) Storage(cmd memcachedCommand, routerHash []byte, key string,
 	telnetConn, index := z.GetTelnetConnection(routerHash, key)
 	defer z.ReturnTelnetConnection(telnetConn, index)
 
+	return z.baseStorage(telnetConn, cmd, key, value, ttl)
+}
+
+// baseStorage - base storage function
+func (z *Zencached) baseStorage(telnetConn *Telnet, cmd memcachedCommand, key string, value string, ttl uint16) (bool, error) {
+
 	if z.enableMetrics {
 		z.countOperation(telnetConn.GetHost(), cmd)
 	}
@@ -156,6 +162,12 @@ func (z *Zencached) Get(routerHash []byte, key string) (string, bool, error) {
 
 	telnetConn, index := z.GetTelnetConnection(routerHash, key)
 	defer z.ReturnTelnetConnection(telnetConn, index)
+
+	return z.baseGet(telnetConn, key)
+}
+
+// baseGet - the base get operation
+func (z *Zencached) baseGet(telnetConn *Telnet, key string) (string, bool, error) {
 
 	if z.enableMetrics {
 		z.countOperation(telnetConn.GetHost(), get)
@@ -213,6 +225,12 @@ func (z *Zencached) Delete(routerHash []byte, key string) (bool, error) {
 
 	telnetConn, index := z.GetTelnetConnection(routerHash, key)
 	defer z.ReturnTelnetConnection(telnetConn, index)
+
+	return z.baseDelete(telnetConn, key)
+}
+
+// baseDelete - base delete operation
+func (z *Zencached) baseDelete(telnetConn *Telnet, key string) (bool, error) {
 
 	if z.enableMetrics {
 		z.countOperation(telnetConn.GetHost(), delete)

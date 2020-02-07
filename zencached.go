@@ -105,18 +105,8 @@ func (z *Zencached) Shutdown() {
 	}
 }
 
-// GetTelnetConnection - returns an idle telnet connection
-func (z *Zencached) GetTelnetConnection(routerHash []byte, key string) (telnetConn *Telnet, index int) {
-
-	if routerHash == nil {
-		routerHash = []byte(key)
-	}
-
-	if len(routerHash) == 0 {
-		index = rand.Intn(z.numNodeTelnetConns)
-	} else {
-		index = int(routerHash[len(routerHash)-1]) % z.numNodeTelnetConns
-	}
+// GetTelnetConnByNodeIndex - returns a telnet connection by node index
+func (z *Zencached) GetTelnetConnByNodeIndex(index int) (telnetConn *Telnet) {
 
 	if !z.enableMetrics {
 
@@ -140,6 +130,24 @@ func (z *Zencached) GetTelnetConnection(routerHash []byte, key string) (telnetCo
 			tagNodeName, telnetConn.GetHost(),
 		)
 	}
+
+	return
+}
+
+// GetTelnetConnection - returns an idle telnet connection
+func (z *Zencached) GetTelnetConnection(routerHash []byte, key string) (telnetConn *Telnet, index int) {
+
+	if routerHash == nil {
+		routerHash = []byte(key)
+	}
+
+	if len(routerHash) == 0 {
+		index = rand.Intn(z.numNodeTelnetConns)
+	} else {
+		index = int(routerHash[len(routerHash)-1]) % z.numNodeTelnetConns
+	}
+
+	telnetConn = z.GetTelnetConnByNodeIndex(index)
 
 	return
 }
