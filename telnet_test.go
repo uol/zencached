@@ -51,7 +51,8 @@ func createTelnetConf() *zencached.TelnetConfiguration {
 
 	return &zencached.TelnetConfiguration{
 		ReconnectionTimeout: 30 * time.Second,
-		ReadWriteTimeout:    3 * time.Second,
+		MaxWriteTimeout:     3 * time.Second,
+		MaxReadTimeout:      30 * time.Millisecond,
 		MaxWriteRetries:     3,
 		ReadBufferSize:      255,
 	}
@@ -102,7 +103,14 @@ func TestInfoCommand(t *testing.T) {
 		return
 	}
 
-	assert.True(t, regexp.MustCompile("STAT version [0-9\\.]+").MatchString(string(payload)), "version not found")
+	found := false
+	for _, line := range payload {
+		if regexp.MustCompile("STAT version [0-9\\.]+").MatchString(string(line)) {
+			found = true
+		}
+	}
+
+	assert.True(t, found, "version not found")
 }
 
 // TestInsertCommand - tests a simple insert command
@@ -122,7 +130,7 @@ func TestInsertCommand(t *testing.T) {
 		return
 	}
 
-	assert.True(t, strings.Contains(string(payload), "STORED"), "expected \"STORED\" as answer")
+	assert.True(t, strings.Contains(string(payload[0]), "STORED"), "expected \"STORED\" as answer")
 
 	err = telnet.Send("get gotest\r\n")
 	if !assert.NoError(t, err, "error sending get command") {
@@ -134,5 +142,7 @@ func TestInsertCommand(t *testing.T) {
 		return
 	}
 
-	assert.True(t, strings.Contains(string(payload), "value"), "expected \"value\" to be stored")
+	stored := string(payload[1])
+
+	assert.Equalf(t, "value", stored, "expected \"value\" to be stored")
 }
