@@ -29,7 +29,6 @@ var (
 	mcrEnd       []byte = []byte("END")
 	mcrNotFound  []byte = []byte("NOT_FOUND")
 	mcrDeleted   []byte = []byte("DELETED")
-	lineBreaks   []byte = []byte{[]byte("\r")[0], []byte("\n")[0]}
 )
 
 // memcachedCommand type
@@ -91,16 +90,16 @@ func (z *Zencached) executeSend(telnetConn *Telnet, operation memcachedCommand, 
 }
 
 // checkResponse - checks the memcached response
-func (z *Zencached) checkResponse(telnetConn *Telnet, foundResponse, notFoundResponse []byte, operation memcachedCommand, renderedCmd string) (bool, []byte, error) {
+func (z *Zencached) checkResponse(telnetConn *Telnet, foundResponse, notFoundResponse []byte, operation memcachedCommand, renderedCmd string) (bool, [][]byte, error) {
 
 	response, err := telnetConn.Read()
 	if err != nil {
 		return false, nil, err
 	}
 
-	if !bytes.HasPrefix(response, foundResponse) {
-		if !bytes.HasPrefix(response, notFoundResponse) {
-			return false, nil, fmt.Errorf("%s operation error on key:\n%s", operation, string(response))
+	if !bytes.HasPrefix(response[0], foundResponse) {
+		if !bytes.Equal(response[0], notFoundResponse) {
+			return false, nil, fmt.Errorf("memcached operation error on command:\n%s", operation)
 		}
 
 		if z.enableMetrics {
@@ -184,40 +183,9 @@ func (z *Zencached) baseGet(telnetConn *Telnet, key string) (string, bool, error
 		return empty, false, err
 	}
 
-	start, end := z.extractLine(response, 2)
-	storedValue := string(response[start:end])
+	storedValue := string(response[1])
 
 	return storedValue, true, nil
-}
-
-// extractLine - extracts a line from the response
-func (z *Zencached) extractLine(response []byte, lineNumber int) (start, end int) {
-
-	lineBreakFound := false
-	currentLine := 0
-	for i := 0; i < len(response); i++ {
-		if !lineBreakFound && (response[i] == lineBreaks[0] || response[i] == lineBreaks[1]) {
-
-			end = i
-
-			if response[i+1] == lineBreaks[0] || response[i+1] == lineBreaks[1] {
-				i++
-			}
-
-			lineBreakFound = true
-			currentLine++
-			if currentLine == lineNumber {
-				return
-			}
-		} else {
-			if lineBreakFound {
-				lineBreakFound = false
-				start = i
-			}
-		}
-	}
-
-	return
 }
 
 // Delete - performs a delete operation
