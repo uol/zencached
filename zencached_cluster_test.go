@@ -40,7 +40,7 @@ func TestClusterStorageCommand(t *testing.T) {
 			panic(err)
 		}
 
-		readedBytes, err := telnetConn.Read()
+		readedBytes, err := telnetConn.Read([][]byte{[]byte("END")})
 		if err != nil {
 			panic(err)
 		}
@@ -126,7 +126,7 @@ func TestClusterDeleteCommand(t *testing.T) {
 			panic(err)
 		}
 
-		readedBytes, err := telnetConn.Read()
+		readedBytes, err := telnetConn.Read([][]byte{[]byte("END")})
 		if err != nil {
 			panic(err)
 		}

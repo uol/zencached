@@ -143,7 +143,7 @@ func rawSetKey(telnetConn *zencached.Telnet, key, value string) {
 		panic(err)
 	}
 
-	_, err = telnetConn.Read()
+	_, err = telnetConn.Read([][]byte{[]byte("STORED")})
 	if err != nil {
 		panic(err)
 	}

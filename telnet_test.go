@@ -52,9 +52,9 @@ func createTelnetConf() *zencached.TelnetConfiguration {
 	return &zencached.TelnetConfiguration{
 		ReconnectionTimeout: 1 * time.Second,
 		MaxWriteTimeout:     30 * time.Second,
-		MaxReadTimeout:      30 * time.Millisecond,
+		MaxReadTimeout:      10 * time.Second,
 		MaxWriteRetries:     3,
-		ReadBufferSize:      255,
+		ReadBufferSize:      2048,
 	}
 }
 
@@ -98,7 +98,7 @@ func TestInfoCommand(t *testing.T) {
 		return
 	}
 
-	payload, err := telnet.Read()
+	payload, err := telnet.Read([][]byte{[]byte("END")})
 	if !assert.NoError(t, err, "error reading response") {
 		return
 	}
@@ -125,7 +125,7 @@ func TestInsertCommand(t *testing.T) {
 		return
 	}
 
-	payload, err := telnet.Read()
+	payload, err := telnet.Read([][]byte{[]byte("STORED")})
 	if !assert.NoError(t, err, "error reading response") {
 		return
 	}
@@ -137,7 +137,7 @@ func TestInsertCommand(t *testing.T) {
 		return
 	}
 
-	payload, err = telnet.Read()
+	payload, err = telnet.Read([][]byte{[]byte("END")})
 	if !assert.NoError(t, err, "error reading response") {
 		return
 	}

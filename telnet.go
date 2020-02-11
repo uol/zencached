@@ -1,6 +1,7 @@
 package zencached
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net"
@@ -188,7 +189,7 @@ func (t *Telnet) Send(command ...string) error {
 }
 
 // Read - read the bytes from the connection, if any
-func (t *Telnet) Read() ([][]byte, error) {
+func (t *Telnet) Read(endConnInput [][]byte) ([][]byte, error) {
 
 	err := t.connection.SetReadDeadline(time.Now().Add(t.configuration.MaxReadTimeout))
 	if err != nil {
@@ -204,24 +205,36 @@ func (t *Telnet) Read() ([][]byte, error) {
 	line := -1
 	addLine := true
 
+mainLoop:
 	for {
 		bytesRead, err = t.connection.Read(buffer)
 		if bytesRead == 0 || err != nil {
-			break
+			break mainLoop
 		}
 
+		// bufferLoop:
 		for i := 0; i < bytesRead; i++ {
 
 			if addLine {
 				lineBuffer = append(lineBuffer, make([]byte, 0))
 				addLine = false
 				line++
+
+				if line > 0 {
+					for j := 0; j < len(endConnInput); j++ {
+						if bytes.Equal(lineBuffer[line-1], endConnInput[j]) {
+							break mainLoop
+						}
+					}
+				}
 			}
 
 			if buffer[i] == lineBreaks[0] || buffer[i] == lineBreaks[1] {
+
 				if i < bytesRead-2 && (buffer[i+1] == lineBreaks[0] || buffer[i+1] == lineBreaks[1]) {
 					i++
 				}
+
 				addLine = true
 
 			} else {
@@ -243,11 +256,6 @@ func (t *Telnet) Read() ([][]byte, error) {
 			return nil, err
 		}
 	}
-
-	// for _, r := range lineBuffer {
-	// 	line := fmt.Sprintf("%s", string(r))
-	// 	fmt.Println(line)
-	// }
 
 	return lineBuffer, nil
 }
