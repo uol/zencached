@@ -245,16 +245,8 @@ mainLoop:
 	}
 
 	if err != nil && err != io.EOF {
-		if cerr, ok := err.(net.Error); ok {
-			if ok && cerr.Timeout() {
-				err = nil
-			}
-		}
-
-		if err != nil {
-			t.logConnectionError(err, read)
-			return nil, err
-		}
+		t.logConnectionError(err, read)
+		return nil, err
 	}
 
 	return lineBuffer, nil
