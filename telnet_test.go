@@ -50,8 +50,8 @@ func setupMemcachedDocker() []zencached.Node {
 func createTelnetConf() *zencached.TelnetConfiguration {
 
 	return &zencached.TelnetConfiguration{
-		ReconnectionTimeout: 30 * time.Second,
-		MaxWriteTimeout:     3 * time.Second,
+		ReconnectionTimeout: 1 * time.Second,
+		MaxWriteTimeout:     30 * time.Second,
 		MaxReadTimeout:      30 * time.Millisecond,
 		MaxWriteRetries:     3,
 		ReadBufferSize:      255,

@@ -1,8 +1,6 @@
 package zencached
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"net"
@@ -200,30 +198,56 @@ func (t *Telnet) Read() ([][]byte, error) {
 		return nil, err
 	}
 
-	readBuffer := bufio.NewReader(t.connection)
-	lineBuffer := [][]byte{}
+	buffer := make([]byte, t.configuration.ReadBufferSize)
+	lineBuffer := make([][]byte, 0)
+	var bytesRead int
+	line := -1
+	addLine := true
 
 	for {
-		// Read tokens delimited by newline
-		readBytes, err := readBuffer.ReadBytes('\n')
-		if err != nil {
-			if castedErr, ok := err.(net.Error); ok {
-				if castedErr.Timeout() {
-					break
-				} else {
-					t.logConnectionError(err, read)
-				}
-			}
-			return nil, err
-		}
-		// removes the \r\n
-		readBytes = readBytes[:len(readBytes)-2]
-
-		lineBuffer = append(lineBuffer, readBytes)
-		if bytes.Contains(readBytes, mcrEnd) {
+		bytesRead, err = t.connection.Read(buffer)
+		if bytesRead == 0 || err != nil {
 			break
 		}
+
+		for i := 0; i < bytesRead; i++ {
+
+			if addLine {
+				lineBuffer = append(lineBuffer, make([]byte, 0))
+				addLine = false
+				line++
+			}
+
+			if buffer[i] == lineBreaks[0] || buffer[i] == lineBreaks[1] {
+				if i < bytesRead-2 && (buffer[i+1] == lineBreaks[0] || buffer[i+1] == lineBreaks[1]) {
+					i++
+				}
+				addLine = true
+
+			} else {
+
+				lineBuffer[line] = append(lineBuffer[line], buffer[i])
+			}
+		}
 	}
+
+	if err != nil && err != io.EOF {
+		if cerr, ok := err.(net.Error); ok {
+			if ok && cerr.Timeout() {
+				err = nil
+			}
+		}
+
+		if err != nil {
+			t.logConnectionError(err, read)
+			return nil, err
+		}
+	}
+
+	// for _, r := range lineBuffer {
+	// 	line := fmt.Sprintf("%s", string(r))
+	// 	fmt.Println(line)
+	// }
 
 	return lineBuffer, nil
 }
@@ -245,7 +269,7 @@ func (t *Telnet) writePayload(payload string) bool {
 
 	_, err = t.connection.Write([]byte(payload))
 	if err != nil {
-		t.logConnectionError(err, read)
+		t.logConnectionError(err, write)
 		return false
 	}
 
