@@ -29,6 +29,7 @@ var (
 	mcrEnd       []byte = []byte("END")
 	mcrNotFound  []byte = []byte("NOT_FOUND")
 	mcrDeleted   []byte = []byte("DELETED")
+	lineBreaks   []byte = []byte{[]byte("\r")[0], []byte("\n")[0]}
 )
 
 // memcachedCommand type

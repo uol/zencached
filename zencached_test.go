@@ -303,7 +303,7 @@ func TestMetricsCollector(t *testing.T) {
 
 	validateArray := func(operation string) {
 
-		<-time.After(200 * time.Millisecond)
+		<-time.After(300 * time.Millisecond)
 
 		validations := createValidations(operation)
 
@@ -336,8 +336,6 @@ func TestMetricsCollector(t *testing.T) {
 	}
 
 	validateArray("add")
-
-	tc.collected = []string{}
 
 	_, err = z.Delete([]byte{3}, "key")
 	if err != nil {
