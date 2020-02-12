@@ -188,22 +188,23 @@ func (t *Telnet) Send(command ...string) error {
 	return err
 }
 
-// Read - read the bytes from the connection, if any
-func (t *Telnet) Read(endConnInput [][]byte) ([][]byte, error) {
+// Read - reads the payload from the active connection
+func (t *Telnet) Read(endConnInput [][]byte) (string, error) {
 
 	err := t.connection.SetReadDeadline(time.Now().Add(t.configuration.MaxReadTimeout))
 	if err != nil {
 		if logh.ErrorEnabled {
 			t.logger.Error().Msg(fmt.Sprintf("error setting read deadline: %s", err.Error()))
 		}
-		return nil, err
+		return empty, err
 	}
 
+	fullBuffer := strings.Builder{}
+	fullBuffer.Grow(t.configuration.ReadBufferSize)
+
 	buffer := make([]byte, t.configuration.ReadBufferSize)
-	lineBuffer := make([][]byte, 0)
-	var bytesRead int
-	line := -1
-	addLine := true
+	var bytesRead, fullBytes int
+	growSize := 1
 
 mainLoop:
 	for {
@@ -212,44 +213,26 @@ mainLoop:
 			break mainLoop
 		}
 
-		// bufferLoop:
-		for i := 0; i < bytesRead; i++ {
+		fullBytes += bytesRead
+		if fullBytes > t.configuration.ReadBufferSize*growSize {
+			fullBuffer.Grow(t.configuration.ReadBufferSize)
+		}
 
-			if addLine {
-				lineBuffer = append(lineBuffer, make([]byte, 0))
-				addLine = false
-				line++
+		fullBuffer.WriteString(string(buffer[0:bytesRead]))
 
-				if line > 0 {
-					for j := 0; j < len(endConnInput); j++ {
-						if bytes.Equal(lineBuffer[line-1], endConnInput[j]) {
-							break mainLoop
-						}
-					}
-				}
-			}
-
-			if buffer[i] == lineBreaks[0] || buffer[i] == lineBreaks[1] {
-
-				if i < bytesRead-2 && (buffer[i+1] == lineBreaks[0] || buffer[i+1] == lineBreaks[1]) {
-					i++
-				}
-
-				addLine = true
-
-			} else {
-
-				lineBuffer[line] = append(lineBuffer[line], buffer[i])
+		for j := 0; j < len(endConnInput); j++ {
+			if bytes.LastIndex(buffer[0:bytesRead], endConnInput[j]) != -1 {
+				break mainLoop
 			}
 		}
 	}
 
 	if err != nil && err != io.EOF {
 		t.logConnectionError(err, read)
-		return nil, err
+		return empty, err
 	}
 
-	return lineBuffer, nil
+	return fullBuffer.String(), nil
 }
 
 // writePayload - writes the payload

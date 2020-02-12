@@ -1,8 +1,8 @@
 package zencached
 
 import (
-	"bytes"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -23,7 +23,8 @@ const (
 
 // memcached responses
 var (
-	lineBreaks []byte = []byte{[]byte("\r")[0], []byte("\n")[0]}
+	lineBreaksR byte = '\r'
+	lineBreaksN byte = '\n'
 
 	// responses
 	mcrValue     []byte = []byte("VALUE") // the only prefix
@@ -98,16 +99,16 @@ func (z *Zencached) executeSend(telnetConn *Telnet, operation memcachedCommand, 
 }
 
 // checkResponse - checks the memcached response
-func (z *Zencached) checkResponse(telnetConn *Telnet, responseSet [][]byte, operation memcachedCommand, renderedCmd string) (bool, [][]byte, error) {
+func (z *Zencached) checkResponse(telnetConn *Telnet, responseSet [][]byte, operation memcachedCommand, renderedCmd string) (bool, string, error) {
 
 	response, err := telnetConn.Read(responseSet)
 	if err != nil {
-		return false, nil, err
+		return false, empty, err
 	}
 
-	if !bytes.HasPrefix(response[0], responseSet[0]) {
-		if !bytes.Equal(response[0], responseSet[1]) {
-			return false, nil, fmt.Errorf("memcached operation error on command:\n%s", operation)
+	if !strings.HasPrefix(response, string(responseSet[0])) {
+		if !strings.Contains(response, string(responseSet[1])) {
+			return false, empty, fmt.Errorf("memcached operation error on command:\n%s", operation)
 		}
 
 		if z.enableMetrics {
@@ -191,9 +192,34 @@ func (z *Zencached) baseGet(telnetConn *Telnet, key string) (string, bool, error
 		return empty, false, err
 	}
 
-	storedValue := string(response[1])
+	start, end, err := z.extractValue([]byte(response))
+	if err != nil {
+		return empty, false, err
+	}
 
-	return storedValue, true, nil
+	return response[start:end], true, nil
+}
+
+// extractValue - extracts a value from the response
+func (z *Zencached) extractValue(response []byte) (start, end int, err error) {
+
+	start = -1
+	end = -1
+
+	for i := 0; i < len(response); i++ {
+		if start == -1 && response[i] == lineBreaksN {
+			start = i + 1
+		} else if start >= 0 && response[i] == lineBreaksR {
+			end = i
+			break
+		}
+	}
+
+	if start == -1 {
+		err = fmt.Errorf("no value found")
+	}
+
+	return
 }
 
 // Delete - performs a delete operation

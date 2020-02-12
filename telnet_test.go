@@ -103,14 +103,7 @@ func TestInfoCommand(t *testing.T) {
 		return
 	}
 
-	found := false
-	for _, line := range payload {
-		if regexp.MustCompile("STAT version [0-9\\.]+").MatchString(string(line)) {
-			found = true
-		}
-	}
-
-	assert.True(t, found, "version not found")
+	assert.True(t, regexp.MustCompile("STAT version [0-9\\.]+").MatchString(payload), "version not found")
 }
 
 // TestInsertCommand - tests a simple insert command
@@ -120,7 +113,7 @@ func TestInsertCommand(t *testing.T) {
 
 	defer telnet.Close()
 
-	err := telnet.Send("add gotest 0 10 5\r\n", "value\r\n")
+	err := telnet.Send("add gotest 0 10 4\r\n", "test\r\n")
 	if !assert.NoError(t, err, "error sending set command") {
 		return
 	}
@@ -130,7 +123,7 @@ func TestInsertCommand(t *testing.T) {
 		return
 	}
 
-	assert.True(t, strings.Contains(string(payload[0]), "STORED"), "expected \"STORED\" as answer")
+	assert.True(t, strings.Contains(payload, "STORED"), "expected \"STORED\" as answer")
 
 	err = telnet.Send("get gotest\r\n")
 	if !assert.NoError(t, err, "error sending get command") {
@@ -142,7 +135,5 @@ func TestInsertCommand(t *testing.T) {
 		return
 	}
 
-	stored := string(payload[1])
-
-	assert.Equalf(t, "value", stored, "expected \"value\" to be stored")
+	assert.True(t, strings.Contains(payload, "test"), "expected \"test\" to be stored")
 }
