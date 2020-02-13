@@ -16,12 +16,10 @@ import (
 
 // memcached commands and constants
 const (
-	getFmt      string = "get %s\r\n"
-	deleteFmt   string = "delete %s\r\n"
-	lineBreaksR byte   = '\r'
-	lineBreaksN byte   = '\n'
-	whiteSpace  byte   = ' '
-	zero        byte   = '0'
+	lineBreaksR byte = '\r'
+	lineBreaksN byte = '\n'
+	whiteSpace  byte = ' '
+	zero        byte = '0'
 )
 
 // memcached responses
@@ -36,9 +34,10 @@ var (
 	mcrDeleted   []byte = []byte("DELETED")
 
 	// response set
-	mcrResponseSetStored  [][]byte = [][]byte{mcrStored, mcrNotStored}
-	mcrResponseSetGet     [][]byte = [][]byte{mcrValue, mcrEnd}
-	mcrResponseSetDeleted [][]byte = [][]byte{mcrDeleted, mcrNotFound}
+	mcrStoredResponseSet      [][]byte = [][]byte{mcrStored, mcrNotStored}
+	mcrGetCheckResponseSet    [][]byte = [][]byte{mcrEnd}
+	mcrGetCheckEndResponseSet [][]byte = [][]byte{mcrValue, mcrEnd}
+	mcrDeletedResponseSet     [][]byte = [][]byte{mcrDeleted, mcrNotFound}
 )
 
 // memcachedCommand type
@@ -100,15 +99,15 @@ func (z *Zencached) executeSend(telnetConn *Telnet, operation memcachedCommand, 
 }
 
 // checkResponse - checks the memcached response
-func (z *Zencached) checkResponse(telnetConn *Telnet, responseSet [][]byte, operation memcachedCommand) (bool, []byte, error) {
+func (z *Zencached) checkResponse(telnetConn *Telnet, checkReadSet, checkResponseSet [][]byte, operation memcachedCommand) (bool, []byte, error) {
 
-	response, err := telnetConn.Read(responseSet)
+	response, err := telnetConn.Read(checkReadSet)
 	if err != nil {
 		return false, nil, err
 	}
 
-	if !bytes.HasPrefix(response, responseSet[0]) {
-		if !bytes.Contains(response, responseSet[1]) {
+	if !bytes.HasPrefix(response, checkResponseSet[0]) {
+		if !bytes.Contains(response, checkResponseSet[1]) {
 			return false, nil, fmt.Errorf("memcached operation error on command:\n%s", operation)
 		}
 
@@ -142,7 +141,7 @@ func (z *Zencached) renderStorageCmd(cmd memcachedCommand, key, value, ttl []byt
 	length := strconv.Itoa(len(value))
 
 	buffer := bytes.Buffer{}
-	buffer.Grow(len(cmd) + len(key) + len(value) + len(ttl) + len(length) + 9)
+	buffer.Grow(len(cmd) + len(key) + len(value) + len(ttl) + len(length) + 4 + (len(doubleBreaks) * 2) + 1)
 	buffer.Write(cmd)
 	buffer.WriteByte(whiteSpace)
 	buffer.Write(key)
@@ -180,7 +179,7 @@ func (z *Zencached) baseStorage(telnetConn *Telnet, cmd memcachedCommand, key, v
 		return false, err
 	}
 
-	wasStored, _, err := z.checkResponse(telnetConn, mcrResponseSetStored, cmd)
+	wasStored, _, err := z.checkResponse(telnetConn, mcrStoredResponseSet, mcrStoredResponseSet, cmd)
 	if err != nil {
 		return false, err
 	}
@@ -192,7 +191,7 @@ func (z *Zencached) baseStorage(telnetConn *Telnet, cmd memcachedCommand, key, v
 func (z *Zencached) renderKeyOnlyCmd(cmd memcachedCommand, key []byte) []byte {
 
 	buffer := bytes.Buffer{}
-	buffer.Grow(len(cmd) + len(key) + 3)
+	buffer.Grow(len(cmd) + len(key) + 1 + len(doubleBreaks))
 	buffer.Write(cmd)
 	buffer.WriteByte(whiteSpace)
 	buffer.Write(key)
@@ -222,7 +221,7 @@ func (z *Zencached) baseGet(telnetConn *Telnet, key []byte) ([]byte, bool, error
 		return nil, false, err
 	}
 
-	exists, response, err := z.checkResponse(telnetConn, mcrResponseSetGet, get)
+	exists, response, err := z.checkResponse(telnetConn, mcrGetCheckResponseSet, mcrGetCheckEndResponseSet, get)
 	if !exists || err != nil {
 		return nil, false, err
 	}
@@ -254,6 +253,10 @@ func (z *Zencached) extractValue(response []byte) (start, end int, err error) {
 		err = fmt.Errorf("no value found")
 	}
 
+	if end == -1 {
+		end = len(response) - 1
+	}
+
 	return
 }
 
@@ -278,7 +281,7 @@ func (z *Zencached) baseDelete(telnetConn *Telnet, key []byte) (bool, error) {
 		return false, err
 	}
 
-	exists, _, err := z.checkResponse(telnetConn, mcrResponseSetDeleted, delete)
+	exists, _, err := z.checkResponse(telnetConn, mcrDeletedResponseSet, mcrDeletedResponseSet, delete)
 	if err != nil {
 		return false, err
 	}
