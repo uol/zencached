@@ -167,7 +167,7 @@ func (t *Telnet) Close() {
 }
 
 // Send - send some command to the server
-func (t *Telnet) Send(command ...string) error {
+func (t *Telnet) Send(command ...[]byte) error {
 
 	var err error
 	for _, c := range command {
@@ -189,17 +189,17 @@ func (t *Telnet) Send(command ...string) error {
 }
 
 // Read - reads the payload from the active connection
-func (t *Telnet) Read(endConnInput [][]byte) (string, error) {
+func (t *Telnet) Read(endConnInput [][]byte) ([]byte, error) {
 
 	err := t.connection.SetReadDeadline(time.Now().Add(t.configuration.MaxReadTimeout))
 	if err != nil {
 		if logh.ErrorEnabled {
 			t.logger.Error().Msg(fmt.Sprintf("error setting read deadline: %s", err.Error()))
 		}
-		return empty, err
+		return nil, err
 	}
 
-	fullBuffer := strings.Builder{}
+	fullBuffer := bytes.Buffer{}
 	fullBuffer.Grow(t.configuration.ReadBufferSize)
 
 	buffer := make([]byte, t.configuration.ReadBufferSize)
@@ -218,7 +218,7 @@ mainLoop:
 			fullBuffer.Grow(t.configuration.ReadBufferSize)
 		}
 
-		fullBuffer.WriteString(string(buffer[0:bytesRead]))
+		fullBuffer.Write((buffer[0:bytesRead]))
 
 		for j := 0; j < len(endConnInput); j++ {
 			if bytes.LastIndex(buffer[0:bytesRead], endConnInput[j]) != -1 {
@@ -229,14 +229,14 @@ mainLoop:
 
 	if err != nil && err != io.EOF {
 		t.logConnectionError(err, read)
-		return empty, err
+		return nil, err
 	}
 
-	return fullBuffer.String(), nil
+	return fullBuffer.Bytes(), nil
 }
 
 // writePayload - writes the payload
-func (t *Telnet) writePayload(payload string) bool {
+func (t *Telnet) writePayload(payload []byte) bool {
 
 	if t.connection == nil {
 		return false

@@ -9,12 +9,12 @@ import (
 func Benchmark(b *testing.B) {
 
 	z := createZencached(nil)
-	key := "benchmark"
-	value := "benchmark"
+	key := []byte("benchmark")
+	value := []byte("benchmark")
 	route := []byte{0}
 
 	for n := 0; n < b.N; n++ {
-		_, err := z.Storage(zencached.Set, route, key, value, 60)
+		_, err := z.Storage(zencached.Set, route, key, value, defaultTTL)
 		if err != nil {
 			panic(err)
 		}
